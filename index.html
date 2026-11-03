@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telelol | LabEnvironment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Telelol <span>| LabEnvironment</span></div>
+  <nav id="nav">
+    <button class="on" data-view="setup">1. Configuración</button>
+    <button data-view="run">2. Ejecución</button>
+    <button data-view="results">3. Resultados</button>
+  </nav>
+  <span class="chip" id="chip">Sin fuente de datos</span>
+</header>
+
+<main>
+<!-- PANTALLA 1 -->
+<section id="view-setup" class="view on">
+  <h1>Configuración</h1>
+  <div class="card">
+    <h2>Conexión con Arduino Uno</h2>
+    <div class="row">
+      <label class="f">Fuente de datos
+        <select id="source"><option value="serial">Arduino (Web Serial, 9600 baud)</option><option value="sim">Simulador (Arduino virtual)</option></select></label>
+      <label class="f">Velocidad del simulador
+        <select id="speed"><option value="1">1x (1 Hz)</option><option value="5" selected>5x</option><option value="10">10x</option></select></label>
+      <button id="btnConn">Conectar</button>
+    </div>
+    <p class="hint">Espera cadenas JSON a 1 Hz: <code>{"temperatura": 24.5, "nivel_gases_contaminantes": 31.2}</code></p>
+  </div>
+
+  <div class="card">
+    <h2>Parámetros del ensayo</h2>
+    <div class="grid">
+      <label class="f">Volumen del recinto <div class="pair"><input id="vol" type="number" value="50" min="0"><select id="volU"><option>L</option><option>m³</option></select></div></label>
+      <label class="f">T ambiente inicial (°C)<input id="tamb" type="number" value="22" step="0.5"></label>
+      <label class="f">T máxima teórica (°C)<input id="tmax" type="number" value="60"></label>
+      <label class="f">τt térmico (s)<input id="tauT" type="number" value="60" min="1"></label>
+      <label class="f">C máxima teórica (ppm)<input id="cmax" type="number" value="2000" min="1"></label>
+      <label class="f">τc de acumulación (s)<input id="tauC" type="number" value="40" min="1"></label>
+      <label class="f">Duración del ensayo (s)<input id="dur" type="number" value="120" min="10"></label>
+      <label class="f">Umbral de alerta (ppm)<input id="thr" type="number" value="1000"></label>
+      <label class="f">Gas objetivo MQ-2
+        <select id="gas"><option value="glp">GLP</option><option value="humo">Humo</option><option value="h2">Hidrógeno (H₂)</option></select></label>
+      <label class="f">Resistencia de carga RL (kΩ)<input id="rl" type="number" value="5" step="0.5" min="0.1"></label>
+      <label class="f">Unidad de temperatura
+        <select id="unit"><option value="C">°C</option><option value="K">K</option></select></label>
+    </div>
+    <p class="hint">Los primeros 5 s de cada ensayo deben ser en aire limpio: ahí se calibra R₀ del MQ-2.</p>
+  </div>
+
+  <div class="card">
+    <h2>Diagnóstico de sensores</h2>
+    <div class="row">
+      <div class="diag"><i class="dot" id="dotT"></i><div><b>TMP36</b> (A0)<br><span id="stT">Sin señal</span></div></div>
+      <div class="diag"><i class="dot" id="dotG"></i><div><b>MQ-2</b> (A1)<br><span id="stG">Sin señal</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PANTALLA 2 -->
+<section id="view-run" class="view">
+  <h1>Ejecución</h1>
+  <div class="card row bar">
+    <button id="btnRun" class="big">Iniciar ensayo</button>
+    <span class="badge" id="phase">En espera</span>
+    <span class="clock">t = <b id="clock">0</b> s</span>
+  </div>
+  <div class="kpis">
+    <div class="card"><small>Concentración filtrada</small><b><span id="kC">—</span> ppm</b></div>
+    <div class="card"><small>Temperatura filtrada</small><b><span id="kT">—</span> <span class="u">°C</span></b></div>
+    <div class="card"><small>Estado del aire</small><b id="kE">—</b></div>
+  </div>
+  <div class="charts">
+    <div class="card"><h2>C(t) · Concentración de gas</h2><div class="cv"><canvas id="chC"></canvas></div></div>
+    <div class="card"><h2>T(t) · Temperatura</h2><div class="cv"><canvas id="chT"></canvas></div></div>
+  </div>
+</section>
+
+<!-- PANTALLA 3 -->
+<section id="view-results" class="view">
+  <h1>Resultados y análisis</h1>
+  <p class="hint" id="resInfo">Aún no hay un ensayo completado.</p>
+  <div class="charts">
+    <div class="card"><h2>Gas: experimental vs teórico</h2><div class="cv"><canvas id="rsC"></canvas></div></div>
+    <div class="card"><h2>Temperatura: experimental vs teórica</h2><div class="cv"><canvas id="rsT"></canvas></div></div>
+  </div>
+  <div class="card">
+    <h2>Panel estadístico</h2>
+    <div class="scroll"><table><thead><tr><th>Variable</th><th>Muestras</th><th>Promedio X̄</th><th>Desv. σ</th><th>Er% medio</th><th>Er% máx.</th></tr></thead><tbody id="statsBody"></tbody></table></div>
+    <p class="hint">Er% = |(Xexp − Xteo) / Xteo| × 100, punto a punto (se omiten puntos con Xteo = 0).</p>
+    <button id="btnCsv" disabled>Exportar a CSV</button>
+  </div>
+</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/io.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
